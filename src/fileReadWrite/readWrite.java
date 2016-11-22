@@ -1,5 +1,11 @@
 package fileReadWrite;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -7,9 +13,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class readWrite 
 {
-    private final ReadWriteLock lock;   //定义锁
-    private static int readCount = 0;    //读者的数量
-
+    private final ReadWriteLock lock;   //定义锁    
     public readWrite()
     {
         lock = new ReentrantReadWriteLock();      
@@ -19,9 +23,16 @@ public class readWrite
     {
     	readWrite rw = new readWrite();
     	ExecutorService executors = Executors.newFixedThreadPool(5);
-        executors.execute(rw.new Reader());
-        executors.execute(rw.new Reader());
-        executors.execute(rw.new Writer());
+    	for(int i = 0; i < 2; i++)
+    	{
+    		executors.execute(rw.new Reader());
+    	}
+        executors.execute(rw.new Writer("I love ZhuangQinfa!"));
+        for(int i = 0; i < 2; i++)
+    	{
+    		executors.execute(rw.new Reader());
+    	}
+        executors.execute(rw.new Writer("I love ZhuangQinfa forever!!!!!!!!!!"));
         executors.execute(rw.new Reader());
         executors.shutdown();
     }
@@ -31,33 +42,48 @@ public class readWrite
         @Override
         public void run() 
         {
-        	read();
-        	after();
-        }
-
-        public void read() 
-        {  
         	lock.readLock().lock();
-        	readCount++;
-        	System.out.println("有1位读者进入,当前共有" + readCount + "位读者");
+        	List<String> lines = new ArrayList<>();
+			try 
+			{
+				lines = Files.readAllLines(Paths.get("E:\\fileTest.txt"), StandardCharsets.UTF_8);
+			}
+			catch (IOException e) 
+			{
+				e.printStackTrace();
+			}  
+    		StringBuilder sb = new StringBuilder();  
+    		for(String line : lines)
+    		{  
+    		    sb.append(line);  
+    		}  
+    		String fromFile = sb.toString();  
+    		System.out.println(Thread.currentThread().getName() + " : 读文件:");
+    		System.out.println(fromFile); 
+    		lock.readLock().unlock();
         }
-
-        public void after() 
-        {  
-            readCount --;
-            System.out.println("有一位读者离开，当前共有" + readCount + "位读者");
-            lock.readLock().unlock();
-        }
-
     }
 
     class Writer implements Runnable 
     {
+    	String content = null;
+    	public Writer(String str)
+    	{
+    		content = str;
+    	}
         @Override
         public void run() 
         {
             lock.writeLock().lock();
-            System.out.println("写者正在写");
+            try
+            {
+				Files.write(Paths.get("E:\\fileTest.txt"), content.getBytes());
+			} 
+            catch (IOException e)
+            {
+				e.printStackTrace();
+			}
+            System.out.println(Thread.currentThread().getName() + "写文件：" + content); 
             lock.writeLock().unlock();
         }
     }
